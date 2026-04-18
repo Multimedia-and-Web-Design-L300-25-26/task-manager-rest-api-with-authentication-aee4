@@ -7,19 +7,59 @@ const router = express.Router();
 
 // POST /api/auth/register
 router.post("/register", async (req, res) => {
-  // - Validate input
-  // - Check if user exists
-  // - Hash password
-  // - Save user
-  // - Return user (without password)
+  try {
+    const { name, email, password } = req.body;
+
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = new User({
+      name,
+      email,
+      password: hashedPassword
+    });
+
+    await user.save();
+
+    res.status(201).json({
+      email: user.email,
+      name: user.name
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Registration failed" });
+  }
 });
 
 // POST /api/auth/login
 router.post("/login", async (req, res) => {
-  // - Find user
-  // - Compare password
-  // - Generate JWT
-  // - Return token
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(400).json({ message: "Invalid password" });
+    }
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET);
+
+    res.json({
+      token
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Login failed" });
+  }
 });
 
 export default router;
